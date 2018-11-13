@@ -121,6 +121,8 @@ public class NextLevelSessionExporter: NSObject {
     internal var _pixelBufferAdaptor: AVAssetWriterInputPixelBufferAdaptor?
     
     internal var _inputQueue: DispatchQueue?
+
+    internal var _cancelled: Bool = false
     
     internal var _videoOutput: AVAssetReaderVideoCompositionOutput?
     internal var _audioOutput: AVAssetReaderAudioMixOutput?
@@ -182,6 +184,7 @@ extension NextLevelSessionExporter {
     /// - Throws: Failure indication thrown when an error has occurred during export.
     public func export(renderHandler: RenderHandler? = nil, progressHandler: ProgressHandler? = nil, completionHandler: CompletionHandler? = nil) throws {
         self.cancelExport()
+        self._cancelled = false
         
         self._progressHandler = progressHandler
         self._renderHandler = renderHandler
@@ -369,6 +372,7 @@ extension NextLevelSessionExporter {
     
     /// Cancels any export in progress.
     public func cancelExport() {
+        self._cancelled = true
         self._inputQueue?.async {
             if self._writer?.status == .writing {
                 self._writer?.cancelWriting()
@@ -391,7 +395,7 @@ extension NextLevelSessionExporter {
     
     // called on the inputQueue
     internal func encode(readySamplesFromReaderOutput output: AVAssetReaderOutput, toWriterInput input: AVAssetWriterInput) -> Bool {
-        while input.isReadyForMoreMediaData {
+        while input.isReadyForMoreMediaData && !_cancelled {
             if let sampleBuffer = output.copyNextSampleBuffer() {
                 var handled = false
                 var error = false
